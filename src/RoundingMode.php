@@ -5,94 +5,146 @@ declare(strict_types=1);
 namespace Brick\Math;
 
 /**
- * Specifies a rounding behavior for numerical operations capable of discarding precision.
+ * Defines rounding behaviors for numerical operations that discard precision.
  *
- * Each rounding mode indicates how the least significant returned digit of a rounded result
- * is to be calculated. If fewer digits are returned than the digits needed to represent the
- * exact numerical result, the discarded digits will be referred to as the discarded fraction
- * regardless the digits' contribution to the value of the number. In other words, considered
- * as a numerical value, the discarded fraction could have an absolute value greater than one.
+ * Each rounding mode specifies how to calculate the least significant digit of a rounded
+ * result when the exact value cannot be represented at the desired precision. The digits
+ * that cannot be represented are called the "discarded fraction" regardless of their
+ * contribution to the overall value.
+ *
+ * Important: The discarded fraction refers to the digits being removed, not their numerical
+ * value. For example, when rounding 12.99 to the nearest integer, the discarded fraction
+ * is "99" (which is greater than 0.5), even though its absolute value as a number is less
+ * than one.
+ *
+ * Usage Context:
+ * These rounding modes are used throughout Brick\Math for operations like division with
+ * limited precision, scale reduction, and conversion operations where exact representation
+ * is not possible.
  */
 enum RoundingMode
 {
     /**
-     * Asserts that the requested operation has an exact result, hence no rounding is necessary.
+     * Requires exact results with no rounding.
      *
-     * If this rounding mode is specified on an operation that yields a result that
-     * cannot be represented at the requested scale, a RoundingNecessaryException is thrown.
+     * When this mode is used, the operation must produce a result that can be exactly
+     * represented at the requested precision. If any rounding would be necessary, a
+     * RoundingNecessaryException is thrown instead.
+     *
+     * Use this mode when precision loss is unacceptable and you want to detect cases
+     * where exact representation is impossible.
      */
     case UNNECESSARY;
 
     /**
-     * Rounds away from zero.
+     * Rounds away from zero (towards infinity in absolute value).
      *
-     * Always increments the digit prior to a nonzero discarded fraction.
-     * Note that this rounding mode never decreases the magnitude of the calculated value.
+     * Always increments the digit prior to any nonzero discarded fraction, increasing
+     * the magnitude. Positive numbers round up, negative numbers round down (more negative).
+     *
+     * Examples: 1.1 → 2, 1.9 → 2, -1.1 → -2, -1.9 → -2
+     *
+     * Note: This mode never decreases the magnitude of the calculated value.
      */
     case UP;
 
     /**
-     * Rounds towards zero.
+     * Rounds towards zero (truncation).
      *
-     * Never increments the digit prior to a discarded fraction (i.e., truncates).
-     * Note that this rounding mode never increases the magnitude of the calculated value.
+     * Never increments the digit prior to a discarded fraction, effectively truncating
+     * the number. This always decreases the magnitude, rounding towards zero.
+     *
+     * Examples: 1.1 → 1, 1.9 → 1, -1.1 → -1, -1.9 → -1
+     *
+     * Note: This mode never increases the magnitude of the calculated value.
      */
     case DOWN;
 
     /**
-     * Rounds towards positive infinity.
+     * Rounds towards positive infinity (ceiling).
      *
-     * If the result is positive, behaves as for UP; if negative, behaves as for DOWN.
-     * Note that this rounding mode never decreases the calculated value.
+     * For positive numbers, behaves like UP. For negative numbers, behaves like DOWN.
+     * Always rounds in the direction of positive infinity.
+     *
+     * Examples: 1.1 → 2, 1.9 → 2, -1.1 → -1, -1.9 → -1
+     *
+     * Note: This mode never decreases the calculated value.
      */
     case CEILING;
 
     /**
-     * Rounds towards negative infinity.
+     * Rounds towards negative infinity (floor).
      *
-     * If the result is positive, behave as for DOWN; if negative, behave as for UP.
-     * Note that this rounding mode never increases the calculated value.
+     * For positive numbers, behaves like DOWN. For negative numbers, behaves like UP.
+     * Always rounds in the direction of negative infinity.
+     *
+     * Examples: 1.1 → 1, 1.9 → 1, -1.1 → -2, -1.9 → -2
+     *
+     * Note: This mode never increases the calculated value.
      */
     case FLOOR;
 
     /**
-     * Rounds towards "nearest neighbor" unless both neighbors are equidistant, in which case round up.
+     * Rounds to nearest neighbor, ties round away from zero.
      *
-     * Behaves as for UP if the discarded fraction is >= 0.5; otherwise, behaves as for DOWN.
-     * Note that this is the rounding mode commonly taught at school.
+     * Rounds to the nearest value. When exactly halfway between two values (e.g., 1.5),
+     * rounds away from zero (like UP). This is the rounding mode commonly taught in schools.
+     *
+     * Examples: 1.4 → 1, 1.5 → 2, 1.6 → 2, -1.5 → -2
+     *
+     * Behavior: UP if discarded fraction ≥ 0.5, otherwise DOWN.
      */
     case HALF_UP;
 
     /**
-     * Rounds towards "nearest neighbor" unless both neighbors are equidistant, in which case round down.
+     * Rounds to nearest neighbor, ties round towards zero.
      *
-     * Behaves as for UP if the discarded fraction is > 0.5; otherwise, behaves as for DOWN.
+     * Rounds to the nearest value. When exactly halfway between two values (e.g., 1.5),
+     * rounds towards zero (like DOWN).
+     *
+     * Examples: 1.4 → 1, 1.5 → 1, 1.6 → 2, -1.5 → -1
+     *
+     * Behavior: UP if discarded fraction > 0.5, otherwise DOWN.
      */
     case HALF_DOWN;
 
     /**
-     * Rounds towards "nearest neighbor" unless both neighbors are equidistant, in which case round towards positive infinity.
+     * Rounds to nearest neighbor, ties round towards positive infinity.
      *
-     * If the result is positive, behaves as for HALF_UP; if negative, behaves as for HALF_DOWN.
+     * Rounds to the nearest value. When exactly halfway between two values, rounds
+     * towards positive infinity (combines HALF_UP for positive, HALF_DOWN for negative).
+     *
+     * Examples: 1.5 → 2, -1.5 → -1
+     *
+     * Behavior: For positive, like HALF_UP; for negative, like HALF_DOWN.
      */
     case HALF_CEILING;
 
     /**
-     * Rounds towards "nearest neighbor" unless both neighbors are equidistant, in which case round towards negative infinity.
+     * Rounds to nearest neighbor, ties round towards negative infinity.
      *
-     * If the result is positive, behaves as for HALF_DOWN; if negative, behaves as for HALF_UP.
+     * Rounds to the nearest value. When exactly halfway between two values, rounds
+     * towards negative infinity (combines HALF_DOWN for positive, HALF_UP for negative).
+     *
+     * Examples: 1.5 → 1, -1.5 → -2
+     *
+     * Behavior: For positive, like HALF_DOWN; for negative, like HALF_UP.
      */
     case HALF_FLOOR;
 
     /**
-     * Rounds towards the "nearest neighbor" unless both neighbors are equidistant, in which case rounds towards the even neighbor.
+     * Rounds to nearest neighbor, ties round to even (Banker's rounding).
      *
-     * Behaves as for HALF_UP if the digit to the left of the discarded fraction is odd;
-     * behaves as for HALF_DOWN if it's even.
+     * Rounds to the nearest value. When exactly halfway between two values, rounds
+     * to the nearest even number. This statistically minimizes cumulative error when
+     * applied repeatedly over many calculations.
      *
-     * Note that this is the rounding mode that statistically minimizes
-     * cumulative error when applied repeatedly over a sequence of calculations.
-     * It is sometimes known as "Banker's rounding", and is chiefly used in the USA.
+     * Examples: 1.5 → 2, 2.5 → 2, 3.5 → 4, -1.5 → -2, -2.5 → -2
+     *
+     * Also known as "Banker's rounding" or "unbiased rounding". Preferred in financial
+     * and scientific applications where cumulative rounding error matters.
+     *
+     * Behavior: HALF_UP if left digit is odd, HALF_DOWN if left digit is even.
      */
     case HALF_EVEN;
 }

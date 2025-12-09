@@ -7,23 +7,43 @@ namespace Brick\Math\Internal;
 use function extension_loaded;
 
 /**
- * Stores the current Calculator instance used by BigNumber classes.
+ * Central registry for Calculator implementation selection and caching.
+ *
+ * This singleton-style registry manages the Calculator instance used throughout the
+ * Brick\Math library. It automatically detects and selects the fastest available
+ * implementation based on installed PHP extensions.
+ *
+ * Selection Priority:
+ * 1. GMP extension (fastest, preferred)
+ * 2. BCMath extension (fast, good alternative)
+ * 3. Native PHP (slowest, guaranteed fallback)
+ *
+ * The selected implementation is cached for the duration of the request to avoid
+ * repeated detection overhead. Manual override is available primarily for testing.
  *
  * @internal
  */
 final class CalculatorRegistry
 {
     /**
-     * The Calculator instance in use.
+     * The cached Calculator instance.
+     *
+     * Null until first access, then populated by autodetection or manual set().
+     * This static property provides request-level caching of the selected implementation.
+     *
+     * @var Calculator|null
      */
     private static ?Calculator $instance = null;
 
     /**
-     * Sets the Calculator instance to use.
+     * Manually sets the Calculator implementation to use.
      *
-     * An instance is typically set only in unit tests: autodetect is usually the best option.
+     * This method is primarily intended for unit testing to force a specific
+     * implementation. In production, autodetection (via get()) is recommended
+     * as it selects the optimal implementation for the environment.
      *
-     * @param Calculator|null $calculator The calculator instance, or null to revert to autodetect.
+     * @param Calculator|null $calculator The calculator instance to use, or null to reset to autodetect
+     * @return void
      */
     final public static function set(?Calculator $calculator): void
     {
@@ -31,12 +51,17 @@ final class CalculatorRegistry
     }
 
     /**
-     * Returns the Calculator instance to use.
+     * Returns the Calculator instance, autodetecting if needed.
      *
-     * If none has been explicitly set, the fastest available implementation will be returned.
+     * On first call, automatically detects the fastest available implementation
+     * based on loaded PHP extensions. Subsequent calls return the cached instance.
+     * This lazy initialization pattern avoids detection overhead until actually needed.
      *
-     * Note: even though this method is not technically pure, it is considered pure when used in a normal context, when
-     * only relying on autodetect.
+     * Note: While this method modifies static state on first call, it is marked
+     * pure for static analysis because it behaves deterministically in normal usage
+     * (without explicit set() calls).
+     *
+     * @return Calculator The Calculator instance to use for all operations
      *
      * @pure
      */
@@ -53,7 +78,13 @@ final class CalculatorRegistry
     }
 
     /**
-     * Returns the fastest available Calculator implementation.
+     * Detects and returns the fastest available Calculator implementation.
+     *
+     * Checks for PHP extensions in order of performance: GMP (fastest), BCMath
+     * (fast), then falls back to NativeCalculator (pure PHP, slowest). This
+     * method is called once per request to initialize the cached instance.
+     *
+     * @return Calculator The best available Calculator implementation
      *
      * @pure
      *

@@ -72,17 +72,28 @@ final readonly class BigRational extends BigNumber
     }
 
     /**
-     * Creates a BigRational out of a numerator and a denominator.
+     * Creates a BigRational from a numerator and denominator.
      *
-     * If the denominator is negative, the signs of both the numerator and the denominator
-     * will be inverted to ensure that the denominator is always positive.
+     * The "nd" name stands for "numerator/denominator". This is the primary factory method for
+     * creating rational numbers. If the denominator is negative, both numerator and denominator
+     * signs are inverted to ensure the denominator is always positive.
      *
-     * @param BigNumber|int|float|string $numerator   The numerator. Must be convertible to a BigInteger.
-     * @param BigNumber|int|float|string $denominator The denominator. Must be convertible to a BigInteger.
+     * ```php
+     * $half = BigRational::nd(1, 2);       // 1/2
+     * $negative = BigRational::nd(-3, 4);  // -3/4
+     * $normalized = BigRational::nd(1, -2); // -1/2 (signs inverted)
+     * ```
      *
-     * @throws NumberFormatException      If an argument does not represent a valid number.
-     * @throws RoundingNecessaryException If an argument represents a non-integer number.
-     * @throws DivisionByZeroException    If the denominator is zero.
+     * @param BigNumber|int|float|string $numerator   The numerator (top number of the fraction).
+     *                                                Must be convertible to a BigInteger.
+     * @param BigNumber|int|float|string $denominator The denominator (bottom number of the fraction).
+     *                                                Must be convertible to a BigInteger and non-zero.
+     *
+     * @return BigRational The rational number representing numerator/denominator.
+     *
+     * @throws \Brick\Math\Exception\NumberFormatException If an argument is not a valid number.
+     * @throws \Brick\Math\Exception\RoundingNecessaryException If an argument requires rounding to become an integer.
+     * @throws \Brick\Math\Exception\DivisionByZeroException If the denominator is zero.
      *
      * @pure
      */
@@ -148,6 +159,12 @@ final readonly class BigRational extends BigNumber
     }
 
     /**
+     * Returns the numerator of this rational number.
+     *
+     * The numerator is the top part of the fraction and carries the sign of the rational number.
+     *
+     * @return BigInteger The numerator.
+     *
      * @pure
      */
     public function getNumerator(): BigInteger
@@ -156,6 +173,12 @@ final readonly class BigRational extends BigNumber
     }
 
     /**
+     * Returns the denominator of this rational number.
+     *
+     * The denominator is the bottom part of the fraction and is always positive.
+     *
+     * @return BigInteger The denominator (always positive).
+     *
      * @pure
      */
     public function getDenominator(): BigInteger
@@ -357,7 +380,18 @@ final readonly class BigRational extends BigNumber
     }
 
     /**
-     * Returns the simplified value of this BigRational.
+     * Returns this rational number simplified to its lowest terms.
+     *
+     * Divides both numerator and denominator by their greatest common divisor (GCD) to reduce
+     * the fraction to its simplest form. For example, 6/9 becomes 2/3.
+     *
+     * ```php
+     * BigRational::nd(6, 9)->simplified();   // Returns 2/3
+     * BigRational::nd(12, 8)->simplified();  // Returns 3/2
+     * BigRational::nd(7, 3)->simplified();   // Returns 7/3 (already simplified)
+     * ```
+     *
+     * @return BigRational The simplified rational number.
      *
      * @pure
      */

@@ -237,13 +237,16 @@ abstract readonly class Calculator
     }
 
     /**
-     * Returns the modular multiplicative inverse of $x modulo $m.
+     * Computes the modular multiplicative inverse using Extended Euclidean Algorithm.
      *
-     * If $x has no multiplicative inverse mod m, this method must return null.
+     * Returns the number y such that (x * y) ≡ 1 (mod m). The inverse exists only
+     * when x and m are coprime (gcd(x, m) = 1). If no inverse exists, returns null.
      *
-     * This method can be overridden by the concrete implementation if the underlying library has built-in support.
+     * Concrete implementations may override this with optimized library functions.
      *
-     * @param string $m The modulus; must not be negative or zero.
+     * @param string $x The number to find the inverse of
+     * @param string $m The modulus, must be positive (not zero or negative)
+     * @return string|null The modular multiplicative inverse, or null if it doesn't exist
      *
      * @pure
      */
@@ -280,12 +283,16 @@ abstract readonly class Calculator
     abstract public function modPow(string $base, string $exp, string $mod): string;
 
     /**
-     * Returns the greatest common divisor of the two numbers.
+     * Computes the greatest common divisor using Euclidean algorithm.
      *
-     * This method can be overridden by the concrete implementation if the underlying library
-     * has built-in support for GCD calculations.
+     * Returns the largest positive integer that divides both numbers without remainder.
+     * Uses recursive Euclidean algorithm for efficiency. The result is always non-negative.
      *
-     * @return string The GCD, always positive, or zero if both arguments are zero.
+     * Concrete implementations may override this with optimized library functions.
+     *
+     * @param string $a The first number
+     * @param string $b The second number
+     * @return string The GCD, always positive, or zero if both arguments are zero
      *
      * @pure
      */
@@ -313,15 +320,16 @@ abstract readonly class Calculator
     abstract public function sqrt(string $n): string;
 
     /**
-     * Converts a number from an arbitrary base.
+     * Converts a number from an arbitrary base to base 10.
      *
-     * This method can be overridden by the concrete implementation if the underlying library
-     * has built-in support for base conversion.
+     * Converts a string representation in any base (2-36) to base 10 using the
+     * standard alphanumeric character set. Input is case-insensitive.
      *
-     * @param string $number The number, positive or zero, non-empty, case-insensitively validated for the given base.
-     * @param int    $base   The base of the number, validated from 2 to 36.
+     * Concrete implementations may override this with optimized library functions.
      *
-     * @return string The converted number, following the Calculator conventions.
+     * @param string $number The number in the source base, positive or zero, containing only valid digits
+     * @param int $base The base of the input number, must be between 2 and 36
+     * @return string The number in base 10, following Calculator conventions
      *
      * @pure
      */
@@ -331,15 +339,16 @@ abstract readonly class Calculator
     }
 
     /**
-     * Converts a number to an arbitrary base.
+     * Converts a base 10 number to an arbitrary base.
      *
-     * This method can be overridden by the concrete implementation if the underlying library
-     * has built-in support for base conversion.
+     * Converts a base 10 number to string representation in any base (2-36) using
+     * the standard alphanumeric character set. Output is always lowercase.
      *
-     * @param string $number The number to convert, following the Calculator conventions.
-     * @param int    $base   The base to convert to, validated from 2 to 36.
+     * Concrete implementations may override this with optimized library functions.
      *
-     * @return string The converted number, lowercase.
+     * @param string $number The base 10 number to convert, following Calculator conventions
+     * @param int $base The target base, must be between 2 and 36
+     * @return string The number in the target base, lowercase
      *
      * @pure
      */
@@ -530,10 +539,16 @@ abstract readonly class Calculator
     }
 
     /**
-     * Calculates bitwise AND of two numbers.
+     * Performs bitwise AND operation on two numbers.
      *
-     * This method can be overridden by the concrete implementation if the underlying library
-     * has built-in support for bitwise operations.
+     * Treats numbers as binary representations and performs bitwise AND. Negative
+     * numbers are handled using two's complement representation.
+     *
+     * Concrete implementations may override this with optimized library functions.
+     *
+     * @param string $a The first operand
+     * @param string $b The second operand
+     * @return string The result of $a AND $b
      *
      * @pure
      */
@@ -543,10 +558,16 @@ abstract readonly class Calculator
     }
 
     /**
-     * Calculates bitwise OR of two numbers.
+     * Performs bitwise OR operation on two numbers.
      *
-     * This method can be overridden by the concrete implementation if the underlying library
-     * has built-in support for bitwise operations.
+     * Treats numbers as binary representations and performs bitwise OR. Negative
+     * numbers are handled using two's complement representation.
+     *
+     * Concrete implementations may override this with optimized library functions.
+     *
+     * @param string $a The first operand
+     * @param string $b The second operand
+     * @return string The result of $a OR $b
      *
      * @pure
      */
@@ -556,10 +577,16 @@ abstract readonly class Calculator
     }
 
     /**
-     * Calculates bitwise XOR of two numbers.
+     * Performs bitwise XOR (exclusive OR) operation on two numbers.
      *
-     * This method can be overridden by the concrete implementation if the underlying library
-     * has built-in support for bitwise operations.
+     * Treats numbers as binary representations and performs bitwise XOR. Negative
+     * numbers are handled using two's complement representation.
+     *
+     * Concrete implementations may override this with optimized library functions.
+     *
+     * @param string $a The first operand
+     * @param string $b The second operand
+     * @return string The result of $a XOR $b
      *
      * @pure
      */
@@ -569,9 +596,15 @@ abstract readonly class Calculator
     }
 
     /**
-     * Extracts the sign & digits of the operands.
+     * Parses two numbers extracting their signs and digit strings.
      *
-     * @return array{bool, bool, string, string} Whether $a and $b are negative, followed by their digits.
+     * Helper method that separates sign information from magnitude for operations
+     * that need to process them separately. Strips leading minus signs and returns
+     * boolean flags indicating negativity.
+     *
+     * @param string $a The first number
+     * @param string $b The second number
+     * @return array{bool, bool, string, string} [$aNeg, $bNeg, $aDigits, $bDigits]
      *
      * @pure
      */
@@ -587,7 +620,14 @@ abstract readonly class Calculator
     }
 
     /**
-     * @return array{string, string, string} GCD, X, Y
+     * Computes GCD and Bézout coefficients using Extended Euclidean Algorithm.
+     *
+     * Returns values satisfying the equation: a*x + b*y = gcd(a, b).
+     * The coefficients x and y are useful for computing modular inverses.
+     *
+     * @param string $a The first number
+     * @param string $b The second number
+     * @return array{string, string, string} [$gcd, $x, $y] where gcd = a*x + b*y
      *
      * @pure
      */
@@ -606,11 +646,16 @@ abstract readonly class Calculator
     }
 
     /**
-     * Performs a bitwise operation on a decimal number.
+     * Implements bitwise operations by converting to binary and back.
      *
-     * @param 'and'|'or'|'xor' $operator The operator to use.
-     * @param string           $a        The left operand.
-     * @param string           $b        The right operand.
+     * Converts decimal numbers to binary byte strings, applies two's complement
+     * for negative numbers, performs the bitwise operation, then converts back
+     * to decimal. The sign of the result follows bitwise logic rules.
+     *
+     * @param 'and'|'or'|'xor' $operator The bitwise operator to apply
+     * @param string $a The first operand
+     * @param string $b The second operand
+     * @return string The result of the bitwise operation
      *
      * @pure
      */
@@ -659,7 +704,13 @@ abstract readonly class Calculator
     }
 
     /**
-     * @param string $number A positive, binary number.
+     * Computes two's complement of a binary number for negative representation.
+     *
+     * Two's complement is calculated by inverting all bits (XOR with 0xFF) and
+     * adding 1. This is the standard way to represent negative numbers in binary.
+     *
+     * @param string $number A binary string (byte string), must be positive
+     * @return string The two's complement as a binary string
      *
      * @pure
      */
@@ -689,9 +740,14 @@ abstract readonly class Calculator
     }
 
     /**
-     * Converts a decimal number to a binary string.
+     * Converts a decimal number to binary representation as byte string.
      *
-     * @param string $number The number to convert, positive or zero, only digits.
+     * Divides the number repeatedly by 256 and collects remainders as bytes.
+     * The result is a big-endian binary string where each character represents
+     * one byte (8 bits) of the binary number.
+     *
+     * @param string $number The decimal number to convert, positive or zero, digits only
+     * @return string Binary representation as byte string
      *
      * @pure
      */
@@ -708,9 +764,13 @@ abstract readonly class Calculator
     }
 
     /**
-     * Returns the positive decimal representation of a binary number.
+     * Converts binary byte string back to decimal representation.
      *
-     * @param string $bytes The bytes representing the number.
+     * Interprets a big-endian binary string where each character is a byte (0-255).
+     * Reconstructs the decimal number by treating it as base-256 positional notation.
+     *
+     * @param string $bytes Binary representation as byte string
+     * @return string The positive decimal number
      *
      * @pure
      */
