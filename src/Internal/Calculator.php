@@ -219,7 +219,15 @@ abstract readonly class Calculator
     abstract public function pow(string $a, int $e): string;
 
     /**
-     * @param string $b The modulus; must not be zero.
+     * Computes the modulo of two numbers.
+     *
+     * Returns the modulo (not remainder) of $a divided by $b. The result always
+     * has the same sign as the divisor $b. This differs from divR() which returns
+     * the remainder with the sign of the dividend.
+     *
+     * @param string $a The dividend
+     * @param string $b The modulus, must not be zero
+     * @return string The modulo value, always between 0 and |$b|
      *
      * @pure
      */

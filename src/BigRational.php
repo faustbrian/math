@@ -15,9 +15,21 @@ use InvalidArgumentException;
 use Override;
 
 /**
- * An arbitrarily large rational number.
+ * Immutable, arbitrary-precision rational numbers represented as fractions.
  *
- * This class is immutable.
+ * This class represents rational numbers as a numerator and denominator (both BigIntegers),
+ * allowing exact representation of fractions without rounding errors. Perfect for financial
+ * calculations, precise mathematical operations, and scenarios requiring exact fractional arithmetic.
+ *
+ * The denominator is always kept positive, with the sign stored in the numerator. Rational
+ * numbers can be simplified to lowest terms using the simplified() method.
+ *
+ * ```php
+ * $oneThird = BigRational::nd(1, 3);              // 1/3
+ * $twoThirds = $oneThird->plus($oneThird);        // 2/3
+ * $decimal = $oneThird->toDecimalPeriod();        // "0.(3)" with period notation
+ * $simplified = BigRational::nd(6, 9)->simplified(); // Returns 2/3
+ * ```
  */
 final readonly class BigRational extends BigNumber
 {
