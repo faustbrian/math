@@ -26,6 +26,19 @@ use const STR_PAD_LEFT;
 
 /**
  * Immutable, arbitrary-precision signed decimal numbers.
+ *
+ * This class represents decimal numbers with arbitrary precision, stored as an unscaled integer value
+ * and a scale (number of digits after the decimal point). Operations maintain precision and allow
+ * controlled rounding when necessary.
+ *
+ * All arithmetic operations return new instances, as BigDecimal is immutable.
+ *
+ * ```php
+ * $price = BigDecimal::of('19.99');
+ * $quantity = BigDecimal::of('3');
+ * $total = $price->multipliedBy($quantity); // 59.97
+ * $rounded = $total->toScale(2, RoundingMode::HALF_UP);
+ * ```
  */
 final readonly class BigDecimal extends BigNumber
 {
@@ -62,11 +75,23 @@ final readonly class BigDecimal extends BigNumber
     /**
      * Creates a BigDecimal from an unscaled value and a scale.
      *
-     * Example: `(12345, 3)` will result in the BigDecimal `12.345`.
+     * The unscaled value represents the integer form of the decimal number, and the scale
+     * determines where to place the decimal point by specifying how many digits follow it.
      *
-     * @param BigNumber|int|float|string $value The unscaled value. Must be convertible to a BigInteger.
-     * @param int                        $scale The scale of the number. If negative, the scale will be set to zero
-     *                                          and the unscaled value will be adjusted accordingly.
+     * ```php
+     * BigDecimal::ofUnscaledValue(12345, 3); // Returns 12.345
+     * BigDecimal::ofUnscaledValue(5, 0);     // Returns 5
+     * BigDecimal::ofUnscaledValue(5, -2);    // Returns 500
+     * ```
+     *
+     * @param BigNumber|int|float|string $value The unscaled value representing the digits without decimal point.
+     *                                          Must be convertible to a BigInteger.
+     * @param int                        $scale The scale (number of digits after decimal point). If negative,
+     *                                          zeros are appended to the unscaled value and scale is set to zero.
+     *
+     * @return BigDecimal The decimal number with the specified scale.
+     *
+     * @throws \Brick\Math\Exception\MathException If the value cannot be converted to BigInteger.
      *
      * @pure
      */
@@ -138,12 +163,19 @@ final readonly class BigDecimal extends BigNumber
     /**
      * Returns the mathematical constant π (pi) to the specified scale.
      *
-     * Uses the Machin formula: π/4 = 4·arctan(1/5) - arctan(1/239)
-     * with Taylor series expansion for arctan.
+     * This method computes pi using the Machin formula: π/4 = 4·arctan(1/5) - arctan(1/239),
+     * which provides rapid convergence for calculating pi to arbitrary precision.
      *
-     * @param int $scale The number of decimal places.
+     * ```php
+     * $pi = BigDecimal::pi(10); // 3.1415926536
+     * $area = $pi->multipliedBy($radius->power(2));
+     * ```
      *
-     * @throws InvalidArgumentException If scale is negative.
+     * @param int $scale The number of decimal places for the result. Must be non-negative.
+     *
+     * @return BigDecimal The value of pi calculated to the specified precision.
+     *
+     * @throws \Brick\Math\Exception\NegativeScaleException If scale is negative.
      *
      * @pure
      */
@@ -211,11 +243,18 @@ final readonly class BigDecimal extends BigNumber
     /**
      * Returns Euler's number e to the specified scale.
      *
-     * Uses the Taylor series: e = Σ(1/n!) for n = 0 to ∞
+     * Computes the mathematical constant e (approximately 2.71828) using the Taylor series
+     * expansion: e = 1 + 1/1! + 1/2! + 1/3! + ..., which converges rapidly.
      *
-     * @param int $scale The number of decimal places.
+     * ```php
+     * $e = BigDecimal::e(5); // 2.71828
+     * ```
      *
-     * @throws InvalidArgumentException If scale is negative.
+     * @param int $scale The number of decimal places for the result. Must be non-negative.
+     *
+     * @return BigDecimal The value of e calculated to the specified precision.
+     *
+     * @throws \Brick\Math\Exception\NegativeScaleException If scale is negative.
      *
      * @pure
      */
@@ -255,11 +294,18 @@ final readonly class BigDecimal extends BigNumber
     /**
      * Returns the golden ratio φ (phi) to the specified scale.
      *
-     * φ = (1 + √5) / 2 ≈ 1.6180339887...
+     * The golden ratio φ = (1 + √5) / 2 ≈ 1.6180339887... is a mathematical constant that appears
+     * frequently in geometry, art, and nature. It is the positive solution to the equation φ² = φ + 1.
      *
-     * @param int $scale The number of decimal places.
+     * ```php
+     * $phi = BigDecimal::phi(8); // 1.61803399
+     * ```
      *
-     * @throws InvalidArgumentException If scale is negative.
+     * @param int $scale The number of decimal places for the result. Must be non-negative.
+     *
+     * @return BigDecimal The golden ratio calculated to the specified precision.
+     *
+     * @throws \Brick\Math\Exception\NegativeScaleException If scale is negative.
      *
      * @pure
      */
@@ -1450,6 +1496,13 @@ final readonly class BigDecimal extends BigNumber
     }
 
     /**
+     * Returns the unscaled value of this decimal number as a BigInteger.
+     *
+     * The unscaled value is the integer representation of this number with the decimal point removed.
+     * For example, the unscaled value of `12.345` is `12345`.
+     *
+     * @return BigInteger The unscaled integer value.
+     *
      * @pure
      */
     public function getUnscaledValue(): BigInteger
@@ -1458,6 +1511,13 @@ final readonly class BigDecimal extends BigNumber
     }
 
     /**
+     * Returns the scale of this decimal number.
+     *
+     * The scale is the number of digits to the right of the decimal point.
+     * For example, the scale of `12.345` is `3`, and the scale of `100` is `0`.
+     *
+     * @return int The scale (number of fractional digits).
+     *
      * @pure
      */
     public function getScale(): int
@@ -1533,7 +1593,12 @@ final readonly class BigDecimal extends BigNumber
     }
 
     /**
-     * Returns whether this decimal number has a non-zero fractional part.
+     * Checks whether this decimal number has a non-zero fractional part.
+     *
+     * Returns true if any digit after the decimal point is non-zero, false otherwise.
+     * For example, `12.000` returns false, while `12.001` returns true.
+     *
+     * @return bool True if there are non-zero digits after the decimal point, false otherwise.
      *
      * @pure
      */

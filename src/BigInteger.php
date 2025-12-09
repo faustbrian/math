@@ -58,10 +58,20 @@ use function substr;
 use const FILTER_VALIDATE_INT;
 
 /**
- * An arbitrary-size integer.
+ * Immutable, arbitrary-precision signed integers.
  *
- * All methods accepting a number as a parameter accept either a BigInteger instance,
- * an integer, or a string representing an arbitrary size integer.
+ * This class represents integers of unlimited size, supporting all standard arithmetic,
+ * bitwise operations, modular arithmetic, and number theory functions. Unlike PHP's native
+ * integers which overflow at PHP_INT_MAX, BigInteger can represent numbers of any magnitude.
+ *
+ * All methods accepting a number parameter accept either a BigInteger instance, a native
+ * integer, or a string representing an arbitrary-size integer.
+ *
+ * ```php
+ * $factorial = BigInteger::of(100)->factorial();
+ * $prime = BigInteger::randomPrime(256); // 256-bit prime for cryptography
+ * $gcd = BigInteger::of(48)->gcd(18); // Returns 6
+ * ```
  */
 final readonly class BigInteger extends BigNumber
 {
@@ -86,21 +96,28 @@ final readonly class BigInteger extends BigNumber
     }
 
     /**
-     * Creates a number from a string in a given base.
+     * Creates a BigInteger from a string representation in a given base.
      *
-     * The string can optionally be prefixed with the `+` or `-` sign.
+     * Supports bases from 2 (binary) to 36 (using digits 0-9 and letters A-Z). The string can optionally
+     * be prefixed with `+` or `-` sign. Case is insensitive for letter digits (A-Z same as a-z).
      *
-     * Bases greater than 36 are not supported by this method, as there is no clear consensus on which of the lowercase
-     * or uppercase characters should come first. Instead, this method accepts any base up to 36, and does not
-     * differentiate lowercase and uppercase characters, which are considered equal.
+     * ```php
+     * $binary = BigInteger::fromBase('1010', 2);      // Returns 10
+     * $hex = BigInteger::fromBase('FF', 16);          // Returns 255
+     * $base36 = BigInteger::fromBase('Z', 36);        // Returns 35
+     * $negative = BigInteger::fromBase('-1010', 2);   // Returns -10
+     * ```
      *
-     * For bases greater than 36, and/or custom alphabets, use the fromArbitraryBase() method.
+     * For bases greater than 36 or custom alphabets, use fromArbitraryBase() instead.
      *
-     * @param string $number The number to convert, in the given base.
-     * @param int    $base   The base of the number, between 2 and 36.
+     * @param string $number The number to convert, optionally prefixed with + or - sign.
+     * @param int    $base   The base of the number, between 2 and 36 inclusive.
      *
-     * @throws NumberFormatException    If the number is empty, or contains invalid chars for the given base.
-     * @throws InvalidArgumentException If the base is out of range.
+     * @return BigInteger The parsed integer value.
+     *
+     * @throws \Brick\Math\Exception\NumberFormatException If the number is empty or contains invalid characters
+     *                                                     for the given base.
+     * @throws \InvalidArgumentException If the base is not between 2 and 36.
      *
      * @pure
      */
@@ -193,21 +210,28 @@ final readonly class BigInteger extends BigNumber
     }
 
     /**
-     * Translates a string of bytes containing the binary representation of a BigInteger into a BigInteger.
+     * Creates a BigInteger from a byte string containing its binary representation.
      *
-     * The input string is assumed to be in big-endian byte-order: the most significant byte is in the zeroth element.
+     * The input string must be in big-endian byte-order (most significant byte first). When $signed
+     * is true, the input is interpreted as a two's-complement signed integer with a sign bit. When
+     * $signed is false, the input is treated as an unsigned positive integer.
      *
-     * If `$signed` is true, the input is assumed to be in two's-complement representation, and the leading bit is
-     * interpreted as a sign bit. If `$signed` is false, the input is interpreted as an unsigned number, and the
-     * resulting BigInteger will always be positive or zero.
+     * This method is the inverse of toBytes() - a number can be exported with toBytes() and restored
+     * with fromBytes() as long as the $signed flag matches.
      *
-     * This method can be used to retrieve a number exported by `toBytes()`, as long as the `$signed` flags match.
+     * ```php
+     * $bytes = "\x01\xFF"; // Big-endian byte string
+     * $signed = BigInteger::fromBytes($bytes, true);     // Interprets as signed: -1
+     * $unsigned = BigInteger::fromBytes($bytes, false);  // Interprets as unsigned: 511
+     * ```
      *
-     * @param string $value  The byte string.
-     * @param bool   $signed Whether to interpret as a signed number in two's-complement representation with a leading
-     *                       sign bit.
+     * @param string $value  The byte string in big-endian format.
+     * @param bool   $signed Whether to interpret as a signed two's-complement number (true)
+     *                       or unsigned positive number (false). Default is true.
      *
-     * @throws NumberFormatException If the string is empty.
+     * @return BigInteger The integer represented by the byte string.
+     *
+     * @throws \Brick\Math\Exception\EmptyByteStringException If the byte string is empty.
      *
      * @pure
      */
@@ -585,10 +609,18 @@ final readonly class BigInteger extends BigNumber
     /**
      * Returns the factorial of this number (n!).
      *
-     * The factorial is defined as n! = n × (n-1) × (n-2) × ... × 2 × 1.
-     * By convention, 0! = 1.
+     * The factorial is defined as n! = n × (n-1) × (n-2) × ... × 2 × 1. By convention, 0! = 1.
+     * This operation grows very rapidly - for example, 100! has 158 digits.
      *
-     * @throws NegativeOperandException If this number is negative.
+     * ```php
+     * BigInteger::of(5)->factorial();  // Returns 120
+     * BigInteger::of(0)->factorial();  // Returns 1
+     * BigInteger::of(20)->factorial(); // Returns 2432902008176640000
+     * ```
+     *
+     * @return BigInteger The factorial of this number.
+     *
+     * @throws \Brick\Math\Exception\NegativeOperandException If this number is negative.
      *
      * @pure
      */
@@ -1121,17 +1153,24 @@ final readonly class BigInteger extends BigNumber
     }
 
     /**
-     * Checks if this number is probably prime.
+     * Checks if this number is probably prime using the Miller-Rabin primality test.
      *
-     * This method uses the Miller-Rabin primality test with a number of rounds
-     * appropriate for the bit length of the number. For numbers less than 3,317,044,064,679,887,385,961,981,
-     * the test is deterministic. For larger numbers, the probability of a false positive
-     * is less than 4^(-$rounds).
+     * For numbers up to 3,317,044,064,679,887,385,961,981, this test is deterministic (100% accurate).
+     * For larger numbers, the test is probabilistic with a false positive rate less than 4^(-rounds).
+     * With the default 25 rounds, the false positive probability is less than 10^(-15).
      *
-     * @param int $rounds The number of Miller-Rabin rounds to perform for large numbers.
-     *                    Defaults to 25, which gives a false positive probability < 10^(-15).
+     * ```php
+     * BigInteger::of(17)->isPrime();      // Returns true
+     * BigInteger::of(15)->isPrime();      // Returns false
+     * BigInteger::of(2)->isPrime();       // Returns true
+     * ```
      *
-     * @throws InvalidArgumentException If rounds is less than 1.
+     * @param int $rounds The number of Miller-Rabin test rounds for large numbers. Higher values
+     *                    increase accuracy but take longer. Defaults to 25 rounds.
+     *
+     * @return bool True if the number is probably prime, false if it is definitely composite.
+     *
+     * @throws \InvalidArgumentException If rounds is less than 1.
      */
     public function isPrime(int $rounds = 25): bool
     {

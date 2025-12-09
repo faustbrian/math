@@ -22,23 +22,41 @@ use const PHP_INT_SIZE;
 use const STR_PAD_LEFT;
 
 /**
- * Calculator implementation using only native PHP code.
+ * Pure PHP calculator implementation using no extensions.
+ *
+ * This fallback implementation provides arbitrary-precision arithmetic using only native
+ * PHP code when neither GMP nor BCMath extensions are available. It processes large numbers
+ * by breaking them into smaller chunks that fit within PHP's native integer limits.
+ *
+ * Performance characteristics:
+ * - Significantly slower than GMP or BCMath for large numbers
+ * - Optimized for 32-bit and 64-bit architectures
+ * - Uses block-based processing to avoid integer overflow
+ * - Automatically detects platform capabilities at construction
  *
  * @internal
  */
 final readonly class NativeCalculator extends Calculator
 {
     /**
-     * The max number of digits the platform can natively add, subtract, multiply or divide without overflow.
-     * For multiplication, this represents the max sum of the lengths of both operands.
+     * The maximum number of digits the platform can process without overflow.
      *
-     * In addition, it is assumed that an extra digit can hold a carry (1) without overflowing.
-     * Example: 32-bit: max number 1,999,999,999 (9 digits + carry)
-     *          64-bit: max number 1,999,999,999,999,999,999 (18 digits + carry)
+     * For addition, subtraction, and division, this is the maximum number of digits
+     * per operand. For multiplication, this represents the maximum sum of the lengths
+     * of both operands to prevent overflow during intermediate calculations.
+     *
+     * An extra digit is reserved to hold carry values (maximum 1) without overflow.
+     * 32-bit platforms: 9 digits (max value 1,999,999,999)
+     * 64-bit platforms: 18 digits (max value 1,999,999,999,999,999,999)
      */
     private int $maxDigits;
 
     /**
+     * Initializes the calculator by detecting platform capabilities.
+     *
+     * Automatically determines the maximum safe digit count based on PHP_INT_SIZE
+     * to ensure calculations never overflow PHP's native integer limits.
+     *
      * @pure
      *
      * @codeCoverageIgnore
@@ -51,6 +69,18 @@ final readonly class NativeCalculator extends Calculator
         };
     }
 
+    /**
+     * Adds two numbers using native PHP arithmetic with overflow handling.
+     *
+     * Attempts fast path using native PHP addition for small numbers. For larger
+     * numbers that would overflow, falls back to block-based addition algorithm.
+     *
+     * @param string $a The first operand
+     * @param string $b The second operand
+     * @return string The sum of the two numbers
+     *
+     * @pure
+     */
     #[Override]
     public function add(string $a, string $b): string
     {
@@ -83,12 +113,37 @@ final readonly class NativeCalculator extends Calculator
         return $result;
     }
 
+    /**
+     * Subtracts the second number from the first.
+     *
+     * Implemented as addition with the negation of the second operand to reuse
+     * the optimized addition logic.
+     *
+     * @param string $a The minuend
+     * @param string $b The subtrahend
+     * @return string The difference between the two numbers
+     *
+     * @pure
+     */
     #[Override]
     public function sub(string $a, string $b): string
     {
         return $this->add($a, $this->neg($b));
     }
 
+    /**
+     * Multiplies two numbers using block-based multiplication.
+     *
+     * Attempts fast path using native PHP multiplication for small numbers. For
+     * larger numbers, breaks operands into blocks and uses grade-school multiplication
+     * algorithm to prevent overflow.
+     *
+     * @param string $a The first factor
+     * @param string $b The second factor
+     * @return string The product of the two numbers
+     *
+     * @pure
+     */
     #[Override]
     public function mul(string $a, string $b): string
     {
@@ -133,18 +188,52 @@ final readonly class NativeCalculator extends Calculator
         return $result;
     }
 
+    /**
+     * Returns the quotient of division.
+     *
+     * Delegates to divQR() and returns only the quotient component.
+     *
+     * @param string $a The dividend
+     * @param string $b The divisor, must not be zero
+     * @return string The quotient of the division
+     *
+     * @pure
+     */
     #[Override]
     public function divQ(string $a, string $b): string
     {
         return $this->divQR($a, $b)[0];
     }
 
+    /**
+     * Returns the remainder of division.
+     *
+     * Delegates to divQR() and returns only the remainder component.
+     *
+     * @param string $a The dividend
+     * @param string $b The divisor, must not be zero
+     * @return string The remainder of the division
+     *
+     * @pure
+     */
     #[Override]
     public function divR(string $a, string $b): string
     {
         return $this->divQR($a, $b)[1];
     }
 
+    /**
+     * Returns both quotient and remainder of division.
+     *
+     * Uses optimized native integer division for small numbers. For larger numbers,
+     * implements long division algorithm with block-based processing to avoid overflow.
+     *
+     * @param string $a The dividend
+     * @param string $b The divisor, must not be zero
+     * @return array{string, string} Array containing quotient at index 0 and remainder at index 1
+     *
+     * @pure
+     */
     #[Override]
     public function divQR(string $a, string $b): array
     {
@@ -199,6 +288,18 @@ final readonly class NativeCalculator extends Calculator
         return [$q, $r];
     }
 
+    /**
+     * Raises a number to the specified power using exponentiation by squaring.
+     *
+     * Uses recursive binary exponentiation algorithm for efficiency. Time complexity
+     * is O(log e) multiplications rather than O(e) for naive repeated multiplication.
+     *
+     * @param string $a The base number
+     * @param int $e The exponent, must be between 0 and Calculator::MAX_POWER
+     * @return string The result of raising $a to the power of $e
+     *
+     * @pure
+     */
     #[Override]
     public function pow(string $a, int $e): string
     {
@@ -225,7 +326,20 @@ final readonly class NativeCalculator extends Calculator
     }
 
     /**
-     * Algorithm from: https://www.geeksforgeeks.org/modular-exponentiation-power-in-modular-arithmetic/.
+     * Performs modular exponentiation using iterative algorithm.
+     *
+     * Efficiently computes (base^exp) % mod without calculating the full power first.
+     * Uses binary representation of exponent to minimize operations. Handles special
+     * cases where mod is 1 to avoid algorithm edge cases.
+     *
+     * Algorithm adapted from: https://www.geeksforgeeks.org/modular-exponentiation-power-in-modular-arithmetic/
+     *
+     * @param string $base The base number, must be positive or zero
+     * @param string $exp The exponent, must be positive or zero
+     * @param string $mod The modulus, must be strictly positive
+     * @return string The result of (base^exp) % mod
+     *
+     * @pure
      */
     #[Override]
     public function modPow(string $base, string $exp, string $mod): string
@@ -260,7 +374,18 @@ final readonly class NativeCalculator extends Calculator
     }
 
     /**
-     * Adapted from https://cp-algorithms.com/num_methods/roots_newton.html.
+     * Computes the integer square root using Newton's method.
+     *
+     * Returns the largest integer x such that x² ≤ n. Uses iterative Newton-Raphson
+     * approximation for efficiency. Initial guess is based on the number of digits
+     * to accelerate convergence.
+     *
+     * Algorithm adapted from: https://cp-algorithms.com/num_methods/roots_newton.html
+     *
+     * @param string $n The number to compute the square root of, must not be negative
+     * @return string The integer square root, rounded down
+     *
+     * @pure
      */
     #[Override]
     public function sqrt(string $n): string
@@ -289,7 +414,14 @@ final readonly class NativeCalculator extends Calculator
     }
 
     /**
-     * Performs the addition of two non-signed large integers.
+     * Performs block-based addition of two non-negative integers.
+     *
+     * Processes numbers in blocks of maxDigits size to prevent overflow. Handles
+     * carry propagation across blocks and properly pads results to maintain alignment.
+     *
+     * @param string $a First operand, must be digits only (no sign)
+     * @param string $b Second operand, must be digits only (no sign)
+     * @return string The sum of the two numbers
      *
      * @pure
      */
@@ -342,7 +474,15 @@ final readonly class NativeCalculator extends Calculator
     }
 
     /**
-     * Performs the subtraction of two non-signed large integers.
+     * Performs block-based subtraction of two non-negative integers.
+     *
+     * Always ensures positive result by subtracting smaller from larger. Uses
+     * complement arithmetic for borrow handling across blocks. Strips leading
+     * zeros from result.
+     *
+     * @param string $a First operand, must be digits only (no sign)
+     * @param string $b Second operand, must be digits only (no sign)
+     * @return string The absolute difference between the two numbers
      *
      * @pure
      */
@@ -420,7 +560,15 @@ final readonly class NativeCalculator extends Calculator
     }
 
     /**
-     * Performs the multiplication of two non-signed large integers.
+     * Performs block-based multiplication using grade-school algorithm.
+     *
+     * Breaks operands into blocks of half maxDigits to ensure products don't overflow.
+     * Uses nested loops to multiply each block pair and accumulates partial results.
+     * Similar to long multiplication taught in school, but in base 10^blockSize.
+     *
+     * @param string $a First factor, must be digits only (no sign)
+     * @param string $b Second factor, must be digits only (no sign)
+     * @return string The product of the two numbers
      *
      * @pure
      */
@@ -491,9 +639,16 @@ final readonly class NativeCalculator extends Calculator
     }
 
     /**
-     * Performs the division of two non-signed large integers.
+     * Performs long division of two non-negative integers.
      *
-     * @return string[] The quotient and remainder.
+     * Implements optimized long division algorithm. For small remainders that fit
+     * in native integers, uses fast integer division. Otherwise, uses focus-based
+     * approach similar to manual long division by repeatedly subtracting divisor
+     * multiples from dividend.
+     *
+     * @param string $a The dividend, must be digits only (no sign)
+     * @param string $b The divisor, must be digits only (no sign), must not be zero
+     * @return array{string, string} Array containing quotient and remainder
      *
      * @pure
      */
@@ -567,9 +722,14 @@ final readonly class NativeCalculator extends Calculator
     }
 
     /**
-     * Compares two non-signed large numbers.
+     * Compares two non-negative integers.
      *
-     * @return -1|0|1
+     * First compares by length, then by lexicographic string comparison for equal lengths.
+     * This works because both numbers have no leading zeros.
+     *
+     * @param string $a First number, must be digits only (no sign)
+     * @param string $b Second number, must be digits only (no sign)
+     * @return -1|0|1 Returns -1 if $a < $b, 0 if equal, 1 if $a > $b
      *
      * @pure
      */
@@ -588,11 +748,15 @@ final readonly class NativeCalculator extends Calculator
     }
 
     /**
-     * Pads the left of one of the given numbers with zeros if necessary to make both numbers the same length.
+     * Pads numbers with leading zeros to match lengths.
      *
-     * The numbers must only consist of digits, without leading minus sign.
+     * Ensures both numbers have the same length by padding the shorter one with
+     * leading zeros. This simplifies block-based arithmetic by allowing aligned
+     * block processing. Input numbers must not have signs.
      *
-     * @return array{string, string, int}
+     * @param string $a First number, must be digits only (no sign)
+     * @param string $b Second number, must be digits only (no sign)
+     * @return array{string, string, int} Padded $a, padded $b, and their common length
      *
      * @pure
      */

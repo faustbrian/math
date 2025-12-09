@@ -35,10 +35,24 @@ use const FILTER_VALIDATE_INT;
 use const PREG_UNMATCHED_AS_NULL;
 
 /**
- * Base class for arbitrary-precision numbers.
+ * Abstract base class for arbitrary-precision numeric types.
  *
- * This class is sealed: it is part of the public API but should not be subclassed in userland.
- * Protected methods may change in any version.
+ * This sealed class provides the foundation for three concrete number types: BigInteger (whole numbers),
+ * BigDecimal (decimal numbers with scale), and BigRational (fractions with numerator/denominator).
+ *
+ * BigNumber provides factory methods, comparison operations, and type conversion methods shared across
+ * all numeric types. The of() method intelligently parses input and returns the most appropriate type:
+ * integers become BigInteger, decimals become BigDecimal, and fractions become BigRational.
+ *
+ * ```php
+ * $int = BigNumber::of(42);           // BigInteger
+ * $decimal = BigNumber::of('3.14');   // BigDecimal
+ * $fraction = BigNumber::of('1/3');   // BigRational
+ * $min = BigNumber::min(5, 3, 9);     // Returns 3 as BigInteger
+ * ```
+ *
+ * This class is sealed and should not be extended in userland code. Protected methods are internal
+ * and may change in any version without notice.
  *
  * @phpstan-sealed BigInteger|BigDecimal|BigRational
  */
@@ -68,24 +82,35 @@ abstract readonly class BigNumber implements JsonSerializable, Stringable
         '$/';
 
     /**
-     * Creates a BigNumber of the given value.
+     * Creates a BigNumber instance from the given value using intelligent type detection.
      *
-     * When of() is called on BigNumber, the concrete return type is dependent on the given value, with the following
-     * rules:
+     * When called on BigNumber, automatically selects the most appropriate concrete type:
+     * - BigNumber instances: returned unchanged
+     * - Native integers: become BigInteger
+     * - Floats: converted to string and parsed as BigDecimal
+     * - Strings with "/": parsed as BigRational (e.g., "1/3")
+     * - Strings with "." or "e": parsed as BigDecimal (e.g., "3.14", "1e5")
+     * - Numeric strings: parsed as BigInteger (e.g., "42", "-123")
      *
-     * - BigNumber instances are returned as is
-     * - integer numbers are returned as BigInteger
-     * - floating point numbers are converted to a string then parsed as such
-     * - strings containing a `/` character are returned as BigRational
-     * - strings containing a `.` character or using an exponential notation are returned as BigDecimal
-     * - strings containing only digits with an optional leading `+` or `-` sign are returned as BigInteger
+     * When called on a concrete subclass (BigInteger, BigDecimal, or BigRational), the value is
+     * converted to that specific type. If conversion requires rounding, an exception is thrown.
      *
-     * When of() is called on BigInteger, BigDecimal, or BigRational, the resulting number is converted to an instance
-     * of the subclass when possible; otherwise a RoundingNecessaryException exception is thrown.
+     * ```php
+     * BigNumber::of(42);           // BigInteger
+     * BigNumber::of('3.14');       // BigDecimal
+     * BigNumber::of('22/7');       // BigRational
+     * BigDecimal::of('1/2');       // BigDecimal: 0.5 (exact conversion)
+     * BigInteger::of('1/2');       // Throws: requires rounding
+     * ```
      *
-     * @throws NumberFormatException      If the format of the number is not valid.
-     * @throws DivisionByZeroException    If the value represents a rational number with a denominator of zero.
-     * @throws RoundingNecessaryException If the value cannot be converted to an instance of the subclass without rounding.
+     * @param BigNumber|int|float|string $value The value to convert. Accepts BigNumber instances,
+     *                                          native numeric types, or string representations.
+     *
+     * @return static A BigNumber instance of the appropriate concrete type.
+     *
+     * @throws \Brick\Math\Exception\NumberFormatException If the string format is invalid.
+     * @throws \Brick\Math\Exception\DivisionByZeroException If parsing a rational with denominator zero.
+     * @throws \Brick\Math\Exception\RoundingNecessaryException If converting to a subclass requires rounding.
      *
      * @pure
      */
@@ -487,9 +512,9 @@ abstract readonly class BigNumber implements JsonSerializable, Stringable
     /**
      * Returns the sign of this number.
      *
-     * Returns -1 if the number is negative, 0 if zero, 1 if positive.
+     * Indicates whether the number is negative, zero, or positive.
      *
-     * @return -1|0|1
+     * @return -1|0|1 Returns -1 for negative numbers, 0 for zero, and 1 for positive numbers.
      *
      * @pure
      */

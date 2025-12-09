@@ -18,30 +18,55 @@ use function strtolower;
 use function substr;
 
 /**
- * Performs basic operations on arbitrary size integers.
+ * Abstract base class for arbitrary-precision integer arithmetic.
  *
- * Unless otherwise specified, all parameters must be validated as non-empty strings of digits,
- * without leading zero, and with an optional leading minus sign if the number is not zero.
+ * Defines the interface for performing mathematical operations on integers of any size,
+ * represented as strings to avoid PHP's native integer overflow limitations. Concrete
+ * implementations may use GMP, BCMath, or pure PHP depending on available extensions.
  *
- * Any other parameter format will lead to undefined behaviour.
- * All methods must return strings respecting this format, unless specified otherwise.
+ * String Format Contract:
+ * - All input/output strings represent integers in base 10
+ * - Format: optional leading minus sign followed by digits
+ * - No leading zeros (except the number "0" itself)
+ * - Non-zero numbers: "-123", "456" (valid) vs "-0", "00123" (invalid)
+ * - Zero must be represented as "0" (not "-0" or "00")
+ *
+ * Parameter Validation:
+ * Unless documented otherwise, methods assume inputs follow the string format contract.
+ * Invalid input produces undefined behavior. Callers must validate inputs before calling.
+ *
+ * Return Value Contract:
+ * All methods return strings following the same format contract unless explicitly documented
+ * otherwise (e.g., divQR returns array, modInverse may return null).
  *
  * @internal
  */
 abstract readonly class Calculator
 {
     /**
-     * The maximum exponent value allowed for the pow() method.
+     * Maximum allowed exponent for pow() method.
+     *
+     * This limit prevents excessive computation time and memory usage from extremely
+     * large exponents. Attempting to use larger exponents should be validated and
+     * rejected by callers before reaching this layer.
      */
     public const MAX_POWER = 1_000_000;
 
     /**
-     * The alphabet for converting from and to base 2 to 36, lowercase.
+     * Character set for base conversions between base 2 and 36.
+     *
+     * Digits 0-9 represent values 0-9, letters a-z represent values 10-35.
+     * All conversions use lowercase letters for consistency.
      */
     public const ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyz';
 
     /**
      * Returns the absolute value of a number.
+     *
+     * Removes the negative sign if present, leaving only the magnitude.
+     *
+     * @param string $n The number to get absolute value of
+     * @return string The absolute value (always non-negative)
      *
      * @pure
      */
@@ -51,7 +76,13 @@ abstract readonly class Calculator
     }
 
     /**
-     * Negates a number.
+     * Negates a number, flipping its sign.
+     *
+     * Positive numbers become negative, negative numbers become positive.
+     * Special case: zero remains zero (never returns "-0").
+     *
+     * @param string $n The number to negate
+     * @return string The negated number
      *
      * @pure
      */
@@ -69,11 +100,14 @@ abstract readonly class Calculator
     }
 
     /**
-     * Compares two numbers.
+     * Compares two numbers and returns their ordering.
      *
-     * Returns -1 if the first number is less than, 0 if equal to, 1 if greater than the second number.
+     * Uses sign comparison first for efficiency, then compares magnitudes by
+     * length and lexicographic ordering for numbers with the same sign.
      *
-     * @return -1|0|1
+     * @param string $a The first number
+     * @param string $b The second number
+     * @return -1|0|1 Returns -1 if $a < $b, 0 if $a = $b, 1 if $a > $b
      *
      * @pure
      */
@@ -106,12 +140,20 @@ abstract readonly class Calculator
     /**
      * Adds two numbers.
      *
+     * @param string $a The first operand
+     * @param string $b The second operand
+     * @return string The sum of the two numbers
+     *
      * @pure
      */
     abstract public function add(string $a, string $b): string;
 
     /**
-     * Subtracts two numbers.
+     * Subtracts the second number from the first.
+     *
+     * @param string $a The minuend (number to subtract from)
+     * @param string $b The subtrahend (number to subtract)
+     * @return string The difference between the two numbers
      *
      * @pure
      */
@@ -119,6 +161,10 @@ abstract readonly class Calculator
 
     /**
      * Multiplies two numbers.
+     *
+     * @param string $a The first factor
+     * @param string $b The second factor
+     * @return string The product of the two numbers
      *
      * @pure
      */
