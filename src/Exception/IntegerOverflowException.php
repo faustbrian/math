@@ -1,0 +1,29 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Brick\Math\Exception;
+
+use Brick\Math\BigInteger;
+use RuntimeException;
+
+use function sprintf;
+
+use const PHP_INT_MAX;
+use const PHP_INT_MIN;
+
+/**
+ * Exception thrown when an integer overflow occurs.
+ */
+final class IntegerOverflowException extends RuntimeException implements MathException
+{
+    /**
+     * @pure
+     */
+    public static function toIntOverflow(BigInteger $value): self
+    {
+        $message = '%s is out of range %d to %d and cannot be represented as an integer.';
+
+        return new self(sprintf($message, (string) $value, PHP_INT_MIN, PHP_INT_MAX));
+    }
+}
